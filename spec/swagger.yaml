@@ -6,106 +6,226 @@ swagger: '2.0'
 #   <schemes>://<host><basepath>
 schemes:
   - http # Remove if your API doesn't support HTTP
-  - https # Remove if your API donsn't support HTTPS
-host: example.com # Replace with your hostname. You can also specify port e.g. example.com:777
-basePath: /api/v1 # Replace with your basePath. Note: SHOULD begin with '/'.
+host: api.cobai.com # Replace with your hostname. You can also specify port e.g. example.com:777
+basePath: /v2 # Replace with your basePath. Note: SHOULD begin with '/'.
 info:
   # Describe your API here, you can use GFM (https://guides.github.com/features/mastering-markdown) here
   description: |
-    This is an **example** API to demontstrate features of OpenAPI specification
-    # Introduction
-    This specification is intended to to be a good starting point for describint your API in 
-    [OpenAPI/Swagger format](https://github.com/OAI/OpenAPI-Specification/blob/master/versions/2.0.md).
-    It also demonstrates features of [generator-openapi-repo](https://github.com/Rebilly/generator-openapi-repo) tool and 
-    [ReDoc](https://github.com/Rebilly/ReDoc) documentation engine. So beyond the standard OpenAPI syntax we use a few 
-    [vendor extensions](https://github.com/Rebilly/ReDoc/blob/master/docs/redoc-vendor-extensions.md).
+    # Erste Schritte
+    Mit unseren Webservice-Schnittstellen können Sie auf viele Shopfunktionen remote zugreifen. Dieses Dokument beschreibt 
+    die grundlegenden Funktionen unserer Webservice-Schnittstellen. Für einen ersten Überblick sollten Sie auf jeden Fall 
+    den Bereich Authentifizierung und danach in Auszügen den Bereich Services lesen.
     
-    # OpenAPI Specification
-    The goal of The OpenAPI Specification is to define a standard, language-agnostic interface to REST APIs which
-    allows both humans and computers to discover and understand the capabilities of the service without access to source
-    code, documentation, or through network traffic inspection. When properly defined via OpenAPI, a consumer can 
-    understand and interact with the remote service with a minimal amount of implementation logic. Similar to what
-    interfaces have done for lower-level programming, OpenAPI removes the guesswork in calling the service.
+    # Authentifizierung
+    Jede Anfrage an unser REST-API muss authentifiziert werden, um unserem System Ihre Identität zu bestätigen. 
+    Der Ablauf der Authentifizierung lehnt sich eng an die Authentifizierung von REST-Anfragen in Amazon S3 an.
+    
+    ## Der Authentication-Header
+    Anfragen an unser REST-API verwenden den standard HTTP-Header Authorization um Authentifizierungsinformationen zu
+    transportieren. Der Authentifizierungsheader hat die folgenden Form:
+    
+    `Authorization: COB CobaiWebServicesAccessKeyID:Signatur`
+    
+    Die Access-Key-Id und Ihren geheimen Schlüssel können Sie im jeweiligen Zielsystem selbst erzeugen. 
+    Über die Access-Key-Id kann das System erkennen, wer die Anfrage signiert hat und welcher geheime Schlüssel verwendet
+    wurde um die Anfrage zu signieren.
+    
+    Die Signatur ist eine Auswahl von Elementen aus der REST-Anfrage, die mit RFC 2104 HMAC-SHA1 verschlüsselt werden, 
+    die Signatur ändert sich daher mit jeder Anfrage. Bei einer eingehenden REST-Anfrage erzeugt das System die selbe 
+    Auswahl der Anfrageelemente und verschlüsselt sie mit dem geheimen Schlüssel der zur übermittelten Access-Key-Id 
+    gehört. Stimmen die übermittelte Signatur und die vom System erzeugte Signatur überein gilt die Anfrage als
+    authentifiziert und wird mit der Authorisierung des Schlüsselinhabers ausgeführt.
+    
+    Der *Authorisation-Header* wird wie folgt erzeugt:
+    
+    ```
+    Authorization = "COB" + " " + CobaiWebServiceAccessKeyId + ":" + Signatur;
 
-  version: '1.0.0' # Your API version
+    Signatur = Base64( HMAC-SHA1 ( UTF8-Encoding-von ( IhrGeheimerSchüssel, ZuSignierenderString ) ) );
+
+    ZuSignierenderString = HTTPVerb + "\n" +
+                           Content-MD5 + "\n" +
+                           Content-Type + "\n" +
+                           Date + "\n" +
+                           Header-Normalform = <siehe weiter unten> +
+                           URL-Normalform = <siehe weiter unten> 
+    ```
+    
+    In Java würden Sie dazu etwas in dieser Art machen, wobei RequestDescription das Erzeugen der Normalform kapselt:
+    
+    ```Java
+    package net.lacho.remoting.api;
+ 
+    import javax.crypto.Mac;
+    import javax.crypto.spec.SecretKeySpec;
+ 
+    import org.apache.commons.codec.binary.Base64;
+ 
+ 
+    public class RequestSignature {
+     
+        private static final String HMAC_SHA1_ALGORITHM = "HmacSHA1";
+        private String signature;
+     
+        public RequestSignature(final String privateKey, final RequestDescription requestDescription)  {
+            try {
+                SecretKeySpec signingKey = new SecretKeySpec(privateKey.getBytes(), HMAC_SHA1_ALGORITHM);
+                Mac mac = Mac.getInstance(HMAC_SHA1_ALGORITHM);
+                mac.init(signingKey);
+                byte[]rawHmac = mac.doFinal(requestDescription.getBytes());
+                signature = new Base64(1000, new byte[] {}).encodeToString(rawHmac);   
+            }
+            catch (Exception e) {
+                signature = "";
+            }
+         
+        }
+     
+        @Override
+        public String toString() {
+            return signature;
+        }
+    }
+    ```
+    
+    ## Erzeugung der Anfrage-Normalform
+    Wie weiter oben ausgeführt erzeugt das System bei einer Anfrage eine Signatur für die Anfrage und vergleicht sie 
+    mit der übermittelten Signatur. Sie müssen daher die Signatur mit der selben Methode erzeugen wie das System. 
+    Der zu signierenden String heißt auch *Anfrage-Normalform*. Um die Anfrage-Normalform erzeugen zu können müssen 
+    sie die *URL-Normalform* und die *Header-Normalform* erzeugen.
+    
+    ### Header-Normalform
+    Um die Header-Normalform zu erzeugen verwenden Sie alle HTTP-Header aus Ihrer Anfrage die mit 'x-cob-' 
+    beginnen und wenden den folgenden Prozess darauf an:
+    1. Wandeln Sie alle Headernamen in Kleinbuchstaben um, aus 'X-Cob-Date' wird also 'x-cob-date'.
+    2. Sortieren Sie die Headerfelder lexikografisch nach den Headernamen.
+    3. Kombinieren Sie mehrere Header mit identischem Namen in einen neuen Header, wie in 
+       [RFC 2616](http://www.ietf.org/rfc/rfc2616.txt), Abschnitt 4.2 beschrieben.
+       Zwischen den einzelnen kommagetrennten Werten ist kein Whitespace erlaubt. Zum Bespiel wird aus den beiden 
+       Headern `x-cob-username:user1` und `x-cob-username:user2` der Header `x-cob-username:user1,user2`.
+    4. Wandeln Sie Header deren Werte über mehrere Zeilen gehen in eine einzeilige Form um (siehe 
+       [RFC 2616](http://www.ietf.org/rfc/rfc2616.txt), Abschnitt 4.2).
+    5. Entfernen Sie eventuell vorhanden Leerraum um den Doppelpunkt in den Headern.
+    6. Fügen Sie an jeden Header ein Newline an (U+000A). Verbinden Sie anschließend alle Header zu einem einzelnen String.
+       Dieser String ist die *Header-Normalform*.
+       
+    ### URL-Normalform
+    Erzeugung der URL-Normalform:
+    1. Entfernen Sie den 
+       [Domänenteil (FQDN)](http://de.wikipedia.org/wiki/FQDN#Fully_Qualified_Domain_Name_.28FQDN.29) 
+       aus der Anfrage-URL.
+    2. Entfernen Sie den 
+       [Query-String](http://de.wikipedia.org/wiki/Uniform_Resource_Locator#searchpart), 
+       sofern vorhanden, inklusive des "?" aus der Anfrage URL.
+    3. [URL-encoden](http://de.wikipedia.org/wiki/URL-Encoding) Sie alle Meta-Characters im verbliebenen String. 
+       Verwenden Sie dabei UTF-8.
+    
+    Damit entsteht zum Beispiel aus
+    
+    `api.cobai.com/v2/orders/pending?sort=desc`
+
+    die Normalform
+    
+    `/v2/orders/pending`
+
+    ## Benannte Headerelemente und Headerelemente an festen Positionen
+    Die ersten vier Headerelemente unterscheiden sich von den anderen dadurch das sie an einer festen Position stehen. 
+    Von ihnen wird daher in den zu signierenden String nur der Wert, nicht aber der Headername aufgenommen.
+
+    Wenn einer dieser Header in Ihrer Anfrage nicht vorkommt (manche sind optional, z.B. Content-Type bei einer PUT-Anfrage)
+    verwenden sie an der entsprechenden Stelle den leeren String ("").
+    
+    <div class="warn">
+    <i class="fa fa-exclamation-triangle"></i>
+    Wenn Ihre Anfrage einen x-cob-date Header enthält müssen Sie bei der Erzeugung der Header-Normalform den Wert des Date
+    Headers weglassen, also den leeren String verwenden.
+    </div>
+    
+    ## Anforderungen an Zeitstempel
+    Für jede Anfrage ist ein gültiger Zeitstempel, entweder als HTTP Date Header oder alternativ als `x-cob-date Header`
+    notwendig. Der Zeitstempel darf maximal 15 Minuten (vor oder zurück) von unserer aktuellen Systemzeit abweichen wenn die
+    Anfrage abgesendet wird um [Replay-Angriffe](http://de.wikipedia.org/wiki/Replay-Angriff)
+    zu erschweren. Anfragen die ausserhalb der erlaubten Zeitfensters eingehen
+    werden mit einem `RequestTimeTooSkewed`-Fehler abgelehnt.
+    
+    Wenn Ihre HTTP-Clientlibrary das Setzen des Date Headers nicht erlaubt können Sie alternativ den `x-cob-date` Header
+    verwenden. Das Datum muss in einem der von RFC 2616, Abschnitt 3.3 vorgegebenen Formate übergeben werden. Wenn Sie 
+    einen `x-cob-date Header` übergeben ignoriert das System bei der erzeugung des zu signierenden Strings den Date Header.
+    Denken Sie also in diesem Fall daran bei der Erzeugung Ihres zu signierenden Strings für den Date Header den leeren String
+    ("") zu verwenden.
+    
+    <div class="info">
+    <i class="fa fa-check"></i>
+    Sie sollten Ihre lokale Uhrzeit mit einer Normalzeitquelle abgleichen, Quellen finden Sie hier.
+    Alternativ können Sie auch die API-Methode 'ping' verwenden, die Ihnen die Systemzeit des API-Servers bereitstellt.
+    </div>
+    
+    ## Signaturprobleme
+    Wenn die Authentifizierung fehlschlägt antwortet das System mit einem `SignatureDoesNotMatch`-Fehler 
+    (ein XML-Dokument). Dieses Dokument soll Ihnen helfen mögliche Fehlergründe zu erkennen und enthält dazu unter anderem 
+    im Element `requestDescription` den kompletten zu signierenden String basierend auf der von Ihnen übermittelten 
+    Anfrage.
+
+
+  version: '2' # Your API version
   # It can be any string but it is better to use semantic versioning: http://semver.org/
   # Warning: OpenAPI require version to be string, but without quotation YAML can recognize it as number.
 
-  title: Example.com # Replace with your API title
+  title: cobai.com store API # Replace with your API title
   # Keep it simple. Don't add "API" or verison at the end of the string.
 
   termsOfService: 'https://example.com/terms/' # [Optional] Replace with an URL to your ToS
   contact:
-    email: contact@example.com # [Optional] Replace with your contact email
-    url: 'http://example.com/contact' # [Optional] Replace with link to your contact form
-  license:
-    name: Apache 2.0
-    url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
+    email: support@cobai.com # [Optional] Replace with your contact email
+    url: 'http://support.cobai.com' # [Optional] Replace with link to your contact form
+#  license:
+#    name: Apache 2.0
+#    url: 'http://www.apache.org/licenses/LICENSE-2.0.html'
   x-logo:
-    url: 'https://apis.guru/openapi-template/logo.png'
-externalDocs:
-  description: Find out how to create Github repo for your OpenAPI spec.
-  url: 'https://github.com/Rebilly/generator-openapi-repo'
+    url: '//www.cobai.com/img/cobai-logo.png'
+#    backgroundColor: '#ffffff'
+#externalDocs:
+#  description: Find out how to create Github repo for your OpenAPI spec.
+#  url: 'https://github.com/Rebilly/generator-openapi-repo'
 produces:
   # List of mime types your API endpoins can return.
   # This is a global default. You can OVERWRITE it in each specific operation.
   # Remove the ones not used in your API
-  - application/json
   - application/xml
-  - text/csv
   # you can add any mime type your API produces to the list
 consumes:
   # List of mime types your API endpoins consumes.
   # This is a global default. You can OVERWRITE it in each specific operation.
   # Remove the ones not supported by your API
-  - application/json
   - application/xml
   # you can add any mime type your API consumes to the list
 
 # A list of tags used by the specification with additional metadata.
 # The order of the tags can be used to reflect on their order by the parsing tools.
 tags:
-  - name: Echo
+  - name: Ping
     description: Example echo operations
   - name: User
     description: Operations about user
 # Security scheme definitions that can be used across the specification.
-securityDefinitions:
-  main_auth: # security definition name (you can name it as you want)
-    type: oauth2 # authorization type, one of: oauth2, basic, apiKey
-    # the following options are specific to oauth2 type
-    authorizationUrl: 'http://example.com/api/oauth/dialog'
-    flow: implicit
-    scopes:
-      'read:users': read users info
-      'write:users': modify or remove users
-  api_key: # security definition name (you can name it as you want)
-    type: apiKey
-    # The following options are specific to apiKey type
-    in: header # Where API key will be passed: header or query
-    name: api_key # API key paramteer name
-  basic_auth: # security definition name (you can name it as you want)
-    type: basic
+#securityDefinitions:
+#  cobai_tokens: # security definition name (you can name it as you want)
+#    description: test more test
+#    type: apiKey # authorization type, one of: oauth2, basic, apiKey
+#    in: header # Where API key will be passed: header or query
+#    name: Authorization # API key paramteer name
 
 # Holds the relative paths to the individual endpoints. The path is appended to the
 # basePath in order to construct the full URL. 
 paths:
-  '/users/{username}': # path parameter in curly braces
-    # documentation for GET operation for this path
+  '/ping': # path parameter in curly braces
     
-    # parameters list that are used with each operation for this path
-    parameters:
-      - name: pretty_print
-        in: query # place where paramter is passed: path, header, query or body, formData
-        description: Pretty print response
-        # type of the paramter: string, number, integer, boolean, array
-        type: boolean
     get:
       tags:
-        - User
+        - Ping
       
       # summary is up to 120 symbold but we recommend to be shortest as possible
-      summary: Get user by user name
+      summary: Systemzeit abrufen
       
       # you can use GFM in operation description too: https://guides.github.com/features/mastering-markdown
       description: | 
@@ -113,109 +233,17 @@ paths:
         You can use `markdown` here.
       
       # operationId should be unique across the whole specification
-      operationId: getUserByName
+      operationId: ping
       
-      # list of parameters for the operation
-      parameters:
-        - name: username
-          in: path
-          description: 'The name that needs to be fetched'
-          required: true
-          type: string
-        - name: with_email
-          in: query
-          description: Filter users without email
-          type: boolean
       
-      # security schemas applied to this operation
-      security:
-        - main_auth:
-          - 'read:users' # for auth2 provide list of scopes here
-        - api_key: []
-      # overwriting default global produces
       produces:
-        - application/json
+        - application/xml
       responses: # list of responses
         '200':
           description: Success
           schema: # response schema can be specified for each response
-            $ref: '#/definitions/User'
-          examples:
-          # repsonse samples for each type operation produces
-            application/json:
-              username: user1
-              email: user@example.com
-        '403':
-          description: Forbidden
-        '404':
-          description: User not found
-    # documentation for PUT operation for this path
-    put:
-      tags:
-        - User
-      summary: Updated user
-      description: This can only be done by the logged in user.
-      operationId: updateUser
-      produces:
-        - application/json
-      parameters:
-        - name: username
-          in: path
-          description: The name that needs to be updated
-          required: true
-          type: string
-        - in: body
-          name: body
-          description: Updated user object
-          required: true
-          # for body parameter you should specify request schema instead of type
-          schema:
-            $ref: '#/definitions/User'
-      security:
-        - main_auth:
-          - 'write:users'
-      responses:
-        '200':
-          description: OK
-        '400':
-          description: Invalid user supplied
-        '404':
-          description: User not found
-  
-  '/echo':
-    post:
-      tags:
-        - Echo
-      summary: Echo test
-      description: Receive the exact message you've sent
-      operationId: echo
-      parameters:
-        - name: message
-          in: body
-          description: 'Echo payload'
-          required: true
-          schema:
-            type: string
-            example: 'Hello world!'
-      security:
-        - api_key: []
-      responses:
-        '200':
-          description: 'OK'
-          examples:
-            'application/json': 'Hello world!'
-          schema:
-            type: string
-          # docuemnt headers for this repsonse
-          headers:
-            X-Rate-Limit: # Header name
-              type: integer # Header value type
-              format: int32 # Header value format
-              description: calls per hour allowed by the user
-            X-Expires-After:
-              type: string
-              format: date-time
-              description: date in UTC when token expires
+            $ref: '#/definitions/PingResponse'
+    
 # An object to hold data types that can be consumed and produced by operations.
 # These data types can be primitives, arrays or models.
 definitions:
@@ -224,23 +252,11 @@ definitions:
     type: string
     format: email
     example: john.smith@example.com
-  User:
+  PingResponse:
     type: object
     properties:
-      username:
-        description: User supplied username
+      localTime:
+        description: Systemzeit des API-Servers
         type: string
-        minLength: 4
-        example: John78
-      firstName:
-        description: User first name
-        type: string
-        minLength: 1
-        example: John
-      lastName:
-        description: User last name
-        type: string
-        minLength: 1
-        example: Smith
-      email:
-        $ref: '#/definitions/Email'
+        example: 2011-01-29T13:23:56.750+01:00
+      
