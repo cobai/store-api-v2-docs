@@ -1,15 +1,19 @@
 language: node_js
 node_js:
-  - "node"
+- node
 deploy:
-  - skip_cleanup: true
-    provider: script
-    script: npm run deploy
-    on:
-      branch: master
-  - skip_cleanup: true
-    provider: script
-    script: npm run deploy-branch
-    on:
-      all_branches: true
-      condition: '"$TRAVIS_BRANCH" != "master" && "$TRAVIS_BRANCH" != "gh-pages"'
+- skip_cleanup: true
+  provider: script
+  script: npm run deploy
+  on:
+    branch: master
+- skip_cleanup: true
+  provider: script
+  script: npm run deploy-branch
+  on:
+    all_branches: true
+    condition: '"$TRAVIS_BRANCH" != "master" && "$TRAVIS_BRANCH" != "gh-pages"'
+notifications:
+  slack:
+    rooms:
+      secure: 4fgQMNYRp6YO8HfdSmkXnRCKMofIGrE9K+6dYbpuhpQ3/drZfEMzDd/mzdfArG25mot5Bp89yY78lY2U3NS3cJ7FOujwud3L6Nyr2CsnI1k+Y/TtRwheMJ1ZO+IUZBiPNBPz3W/Gz0JPUKohBAASU7hackGypdL0KvdRc6Yhda8mneDpPjqhDFLvICWETRCCsY6YGzP1CyWIUkfkCKSbs/Xa27x3nH4VkRmkIlO9XaNnyhC5Ylrkf5cftN63/muMjsXaG1bfPyjFffeWaM6T7/xf/utpAm4gdPRCMkfPayCnmfPFewg6qZREV2CTIiOO+WY7bLAdcm9lJhXZEJwYtWKLS+vG71Z0gg9upAWSaJbWjjtE1I2dyqz3CyYMZzvYicU2T09wahizPNh/tdXSYvuDFTfR0Fj/oCO6Mx418Ejg5WFdugTMquREzYivZNvUDN570kOg2/DVQ3SJdzl4mIjc3Qz9xRyNUNLRKz5eIdH5YRxk/K9gddwU5zQ6R/SgqFWOwE9ZdvS6Pa+rljBMknxFDNnRfkkRbrWnoFT+nUOvcQW1Y7IY7iGvcKaQ1Nt60BTqXtu8It2R6fUAuNoTyRhptwXt9Q35PR5NEpzDCe3vOgioV9XMRTCV+PHDT9Cjnj2yU+UGI+13YGPdGiVyYNFdidzJvLewhbCmnKH55sA=
