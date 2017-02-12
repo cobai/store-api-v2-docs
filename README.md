@@ -1,43 +1,23 @@
-# Store-API v2 OpenAPI Specification
+# cobai.com's Store-API v2 
 [![Build Status](https://travis-ci.org/cobai/store-api-v2-docs.svg?branch=master)](https://travis-ci.org/cobai/store-api-v2-docs)
 
-## Steps to finish
+#### Bugs and Requests
+The purpose of this repository is to work as the public issue tracker for [cobai.com's store API v2](https://developer.cobai.com). If you've found a bug in the API, or have ideas on how we could improve it, please [create an issue](https://www.github.com/cobai/store-api-v2-docs/issues). It's greatly appreciated.
 
-1. Enable [Travis](https://docs.travis-ci.com/user/getting-started/#To-get-started-with-Travis-CI%3A) for your repository (**note**: you already have `.travis.yml` file)
-2. [Create GitHub access token](https://help.github.com/articles/creating-an-access-token-for-command-line-use/); check `public_repo` on `Select scopes` section.
-3. Use the token value as a value for [Travis environment variable](https://docs.travis-ci.com/user/environment-variables/#Defining-Variables-in-Repository-Settings) with the name `GH_TOKEN`
-4. Make a test commit to trigger CI: `git commit --allow-empty -m "Test Travis CI" && git push`
-5. Wait until Travis build is finished. You can check progress by clicking on the `Build Status` badge at the top
-6. If you did everything correct, https://cobai.github.io/store-api-v2-docs/ will lead to your new docs
-7. **[Optional]** You can setup [custom domain](https://help.github.com/articles/using-a-custom-domain-with-github-pages/) (just create `web/CNAME` file)
-8. Start writing/editing your OpenAPI spec: check out [usage](#usage) section below
-9. **[Optional]** If you document public API consider adding it into [APIs.guru](https://APIs.guru) directory using [this form](https://apis.guru/add-api/).
-10. Delete this section :smile:
+We differentiate between *enhancement requests* and *feature requests* in that enhancement requests are improvement of existing features, while feature requests are requests for entirely new features.
 
-## Links
+##### Open issues
+[Open bug tickets](https://github.com/cobai/store-api-v2-docs/labels/bug) | [Open feature requests](https://github.com/cobai/store-api-v2-docs/issues?q=feature+is%3Aopen+label%3A%22feature+request%22) | [Open enhancement requests](https://github.com/cobai/store-api-v2-docs/issues?q=feature+is%3Aopen+label%3A%22enhancement%22)
 
-- Documentation(ReDoc): https://cobai.github.io/store-api-v2-docs/
-- SwaggerUI: https://cobai.github.io/store-api-v2-docs/swagger-ui/
-- Look full spec:
-    + JSON https://cobai.github.io/store-api-v2-docs/swagger.json
-    + YAML https://cobai.github.io/store-api-v2-docs/swagger.yaml
-- Preview spec version for branch `[branch]`: https://cobai.github.io/store-api-v2-docs/preview/[branch]
+**If you want to show your support for an existing feature request, please add a [thumbs up reaction](https://github.com/blog/2119-add-reactions-to-pull-requests-issues-and-comments) instead of commenting  "_+1_".** This way the creator of the feature request doesn't get bombarded with notifications.
 
-**Warning:** All above links are updated only after Travis CI finishes deployment
+#### Other support
+If you have ideas, bug reports, or any other type of feedback to cobai.com that doesn't relate to the API, please submit these at [our Zendesk](https://support.cobai.com/).
 
-## Working on specification
-### Install
+#### OpenAPI Specification
+The repository also contains the [OpenAPI specification](https://github.com/cobai/store-api-v2-docs/tree/master/spec/swagger.yaml) for the cobai.com store API v2. [OpenAPI](http://swagger.io/specification) is a YAML-based language that describes RESTful APIs and provides all the information necessary to describe RESTful APIs, create API client-code and API server-code generators, and create API user documentation from OpenAPI API definitions.
 
-1. Install [Node JS](https://nodejs.org/)
-2. Clone repo and `cd`
-    + Run `npm install`
-
-### Usage
-
-1. Run `npm start`
-2. Checkout console output to see where local server is started. You can use all [links](#links) (except `preview`) by replacing https://cobai.github.io/store-api-v2-docs/ with url from the message: `Server started <url>`
-3. Make changes using your favorite editor or `swagger-editor` (look for URL in console output)
-4. All changes are immediately propagated to your local server, moreover all documentation pages will be automagically refreshed in a browser after each change
-**TIP:** you can open `swagger-editor`, documentation and `swagger-ui` in parallel
-5. Once you finish with the changes you can run tests using: `npm test`
-6. Share you changes with the rest of the world by pushing to GitHub :smile:
+<!--
+#### Stay tuned in
+For API announcements, visit the [API Change Log](https://developer.cobai.com/store-api-v2-docs/change-log/), or subscribe to our [newsletter](https://developer.cobai.com/store-api-v2-docs/).
+-->
