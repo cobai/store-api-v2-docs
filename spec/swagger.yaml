@@ -203,10 +203,11 @@ consumes:
 # A list of tags used by the specification with additional metadata.
 # The order of the tags can be used to reflect on their order by the parsing tools.
 tags:
-  - name: Ping
-    description: Example echo operations
-  - name: User
-    description: Operations about user
+  - name: System
+    description: Systemfunktionen (API-Status, Systemzeit)
+  - name: Katalog
+    description: Katalogfunktionen
+  
 # Security scheme definitions that can be used across the specification.
 #securityDefinitions:
 #  cobai_tokens: # security definition name (you can name it as you want)
@@ -222,15 +223,22 @@ paths:
     
     get:
       tags:
-        - Ping
+        - System
       
       # summary is up to 120 symbold but we recommend to be shortest as possible
       summary: Systemzeit abrufen
       
       # you can use GFM in operation description too: https://guides.github.com/features/mastering-markdown
       description: | 
-        Some description of the operation. 
-        You can use `markdown` here.
+        Liefert die Systemzeit des API-Servers.
+
+        <div class="info">
+        <i class="fa fa-check"></i>
+        Diese Methode benötigt keine Authentifizierung.
+        
+        Der Server synchronisiert seine Zeit mit einem DCF-Empfänger, sie können die Antwort daher auch als Normalzeitquelle 
+        verwenden wenn Sie keinen Zugriff auf einen NTP-Server haben.
+        </div>
       
       # operationId should be unique across the whole specification
       operationId: ping
