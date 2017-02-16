@@ -1,0 +1,78 @@
+{
+  "swagger": "2.0",
+  "schemes": [
+    "http"
+  ],
+  "host": "api.cobai.com",
+  "basePath": "/v2",
+  "info": {
+    "description": "# Erste Schritte\nMit unseren Webservice-Schnittstellen können Sie auf viele Shopfunktionen remote zugreifen. Dieses Dokument beschreibt \ndie grundlegenden Funktionen unserer Webservice-Schnittstellen. Für einen ersten Überblick sollten Sie auf jeden Fall \nden Bereich Authentifizierung und danach in Auszügen den Bereich Services lesen.\n\n# Authentifizierung\nJede Anfrage an unser REST-API muss authentifiziert werden, um unserem System Ihre Identität zu bestätigen. \nDer Ablauf der Authentifizierung lehnt sich eng an die Authentifizierung von REST-Anfragen in Amazon S3 an.\n\n## Der Authentication-Header\nAnfragen an unser REST-API verwenden den standard HTTP-Header Authorization um Authentifizierungsinformationen zu\ntransportieren. Der Authentifizierungsheader hat die folgenden Form:\n\n`Authorization: COB CobaiWebServicesAccessKeyID:Signatur`\n\nDie Access-Key-Id und Ihren geheimen Schlüssel können Sie im jeweiligen Zielsystem selbst erzeugen. \nÜber die Access-Key-Id kann das System erkennen, wer die Anfrage signiert hat und welcher geheime Schlüssel verwendet\nwurde um die Anfrage zu signieren.\n\nDie Signatur ist eine Auswahl von Elementen aus der REST-Anfrage, die mit RFC 2104 HMAC-SHA1 verschlüsselt werden, \ndie Signatur ändert sich daher mit jeder Anfrage. Bei einer eingehenden REST-Anfrage erzeugt das System die selbe \nAuswahl der Anfrageelemente und verschlüsselt sie mit dem geheimen Schlüssel der zur übermittelten Access-Key-Id \ngehört. Stimmen die übermittelte Signatur und die vom System erzeugte Signatur überein gilt die Anfrage als\nauthentifiziert und wird mit der Authorisierung des Schlüsselinhabers ausgeführt.\n\nDer *Authorisation-Header* wird wie folgt erzeugt:\n\n```\nAuthorization = \"COB\" + \" \" + CobaiWebServiceAccessKeyId + \":\" + Signatur;\n\nSignatur = Base64( HMAC-SHA1 ( UTF8-Encoding-von ( IhrGeheimerSchüssel, ZuSignierenderString ) ) );\n\nZuSignierenderString = HTTPVerb + \"\\n\" +\n                       Content-MD5 + \"\\n\" +\n                       Content-Type + \"\\n\" +\n                       Date + \"\\n\" +\n                       Header-Normalform = <siehe weiter unten> +\n                       URL-Normalform = <siehe weiter unten> \n```\n\nIn Java würden Sie dazu etwas in dieser Art machen, wobei RequestDescription das Erzeugen der Normalform kapselt:\n\n```Java\npackage net.lacho.remoting.api;\n\nimport javax.crypto.Mac;\nimport javax.crypto.spec.SecretKeySpec;\n\nimport org.apache.commons.codec.binary.Base64;\n\n\npublic class RequestSignature {\n \n    private static final String HMAC_SHA1_ALGORITHM = \"HmacSHA1\";\n    private String signature;\n \n    public RequestSignature(final String privateKey, final RequestDescription requestDescription)  {\n        try {\n            SecretKeySpec signingKey = new SecretKeySpec(privateKey.getBytes(), HMAC_SHA1_ALGORITHM);\n            Mac mac = Mac.getInstance(HMAC_SHA1_ALGORITHM);\n            mac.init(signingKey);\n            byte[]rawHmac = mac.doFinal(requestDescription.getBytes());\n            signature = new Base64(1000, new byte[] {}).encodeToString(rawHmac);   \n        }\n        catch (Exception e) {\n            signature = \"\";\n        }\n     \n    }\n \n    @Override\n    public String toString() {\n        return signature;\n    }\n}\n```\n\n## Erzeugung der Anfrage-Normalform\nWie weiter oben ausgeführt erzeugt das System bei einer Anfrage eine Signatur für die Anfrage und vergleicht sie \nmit der übermittelten Signatur. Sie müssen daher die Signatur mit der selben Methode erzeugen wie das System. \nDer zu signierenden String heißt auch *Anfrage-Normalform*. Um die Anfrage-Normalform erzeugen zu können müssen \nsie die *URL-Normalform* und die *Header-Normalform* erzeugen.\n\n### Header-Normalform\nUm die Header-Normalform zu erzeugen verwenden Sie alle HTTP-Header aus Ihrer Anfrage die mit 'x-cob-' \nbeginnen und wenden den folgenden Prozess darauf an:\n1. Wandeln Sie alle Headernamen in Kleinbuchstaben um, aus 'X-Cob-Date' wird also 'x-cob-date'.\n2. Sortieren Sie die Headerfelder lexikografisch nach den Headernamen.\n3. Kombinieren Sie mehrere Header mit identischem Namen in einen neuen Header, wie in \n   [RFC 2616](http://www.ietf.org/rfc/rfc2616.txt), Abschnitt 4.2 beschrieben.\n   Zwischen den einzelnen kommagetrennten Werten ist kein Whitespace erlaubt. Zum Bespiel wird aus den beiden \n   Headern `x-cob-username:user1` und `x-cob-username:user2` der Header `x-cob-username:user1,user2`.\n4. Wandeln Sie Header deren Werte über mehrere Zeilen gehen in eine einzeilige Form um (siehe \n   [RFC 2616](http://www.ietf.org/rfc/rfc2616.txt), Abschnitt 4.2).\n5. Entfernen Sie eventuell vorhanden Leerraum um den Doppelpunkt in den Headern.\n6. Fügen Sie an jeden Header ein Newline an (U+000A). Verbinden Sie anschließend alle Header zu einem einzelnen String.\n   Dieser String ist die *Header-Normalform*.\n   \n### URL-Normalform\nErzeugung der URL-Normalform:\n1. Entfernen Sie den \n   [Domänenteil (FQDN)](http://de.wikipedia.org/wiki/FQDN#Fully_Qualified_Domain_Name_.28FQDN.29) \n   aus der Anfrage-URL.\n2. Entfernen Sie den \n   [Query-String](http://de.wikipedia.org/wiki/Uniform_Resource_Locator#searchpart), \n   sofern vorhanden, inklusive des \"?\" aus der Anfrage URL.\n3. [URL-encoden](http://de.wikipedia.org/wiki/URL-Encoding) Sie alle Meta-Characters im verbliebenen String. \n   Verwenden Sie dabei UTF-8.\n\nDamit entsteht zum Beispiel aus\n\n`api.cobai.com/v2/orders/pending?sort=desc`\n\ndie Normalform\n\n`/v2/orders/pending`\n\n## Benannte Headerelemente und Headerelemente an festen Positionen\nDie ersten vier Headerelemente unterscheiden sich von den anderen dadurch das sie an einer festen Position stehen. \nVon ihnen wird daher in den zu signierenden String nur der Wert, nicht aber der Headername aufgenommen.\n\nWenn einer dieser Header in Ihrer Anfrage nicht vorkommt (manche sind optional, z.B. Content-Type bei einer PUT-Anfrage)\nverwenden sie an der entsprechenden Stelle den leeren String (\"\").\n\n<div class=\"warn\">\n<i class=\"fa fa-exclamation-triangle\"></i>\nWenn Ihre Anfrage einen x-cob-date Header enthält müssen Sie bei der Erzeugung der Header-Normalform den Wert des Date\nHeaders weglassen, also den leeren String verwenden.\n</div>\n\n## Anforderungen an Zeitstempel\nFür jede Anfrage ist ein gültiger Zeitstempel, entweder als HTTP Date Header oder alternativ als `x-cob-date Header`\nnotwendig. Der Zeitstempel darf maximal 15 Minuten (vor oder zurück) von unserer aktuellen Systemzeit abweichen wenn die\nAnfrage abgesendet wird um [Replay-Angriffe](http://de.wikipedia.org/wiki/Replay-Angriff)\nzu erschweren. Anfragen die ausserhalb der erlaubten Zeitfensters eingehen\nwerden mit einem `RequestTimeTooSkewed`-Fehler abgelehnt.\n\nWenn Ihre HTTP-Clientlibrary das Setzen des Date Headers nicht erlaubt können Sie alternativ den `x-cob-date` Header\nverwenden. Das Datum muss in einem der von RFC 2616, Abschnitt 3.3 vorgegebenen Formate übergeben werden. Wenn Sie \neinen `x-cob-date Header` übergeben ignoriert das System bei der erzeugung des zu signierenden Strings den Date Header.\nDenken Sie also in diesem Fall daran bei der Erzeugung Ihres zu signierenden Strings für den Date Header den leeren String\n(\"\") zu verwenden.\n\n<div class=\"info\">\n<i class=\"fa fa-check\"></i>\nSie sollten Ihre lokale Uhrzeit mit einer Normalzeitquelle abgleichen, Quellen finden Sie hier.\nAlternativ können Sie auch die API-Methode 'ping' verwenden, die Ihnen die Systemzeit des API-Servers bereitstellt.\n</div>\n\n## Signaturprobleme\nWenn die Authentifizierung fehlschlägt antwortet das System mit einem `SignatureDoesNotMatch`-Fehler \n(ein XML-Dokument). Dieses Dokument soll Ihnen helfen mögliche Fehlergründe zu erkennen und enthält dazu unter anderem \nim Element `requestDescription` den kompletten zu signierenden String basierend auf der von Ihnen übermittelten \nAnfrage.\n",
+    "version": "2",
+    "title": "cobai.com store API",
+    "termsOfService": "https://example.com/terms/",
+    "contact": {
+      "email": "support@cobai.com",
+      "url": "http://support.cobai.com"
+    },
+    "x-logo": {
+      "url": "//www.cobai.com/img/cobai-logo.png"
+    }
+  },
+  "produces": [
+    "application/xml"
+  ],
+  "consumes": [
+    "application/xml"
+  ],
+  "tags": [
+    {
+      "name": "System",
+      "description": "Systemfunktionen (API-Status, Systemzeit)"
+    },
+    {
+      "name": "Katalog",
+      "description": "Katalogfunktionen"
+    }
+  ],
+  "paths": {
+    "/ping": {
+      "get": {
+        "tags": [
+          "System"
+        ],
+        "summary": "Systemzeit abrufen",
+        "description": "Liefert die Systemzeit des API-Servers.\n\n<div class=\"info\">\n<i class=\"fa fa-check\"></i>\nDiese Methode benötigt keine Authentifizierung.\n\nDer Server synchronisiert seine Zeit mit einem DCF-Empfänger, sie können die Antwort daher auch als Normalzeitquelle \nverwenden wenn Sie keinen Zugriff auf einen NTP-Server haben.\n</div>\n",
+        "operationId": "ping",
+        "produces": [
+          "application/xml"
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "$ref": "#/definitions/PingResponse"
+            }
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "Email": {
+      "description": "User email address",
+      "type": "string",
+      "format": "email",
+      "example": "john.smith@example.com"
+    },
+    "PingResponse": {
+      "type": "object",
+      "properties": {
+        "localTime": {
+          "description": "Systemzeit des API-Servers",
+          "type": "string",
+          "example": "2011-01-29T12:23:56.750Z"
+        }
+      }
+    }
+  }
+}

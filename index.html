@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Store-API v2 API Specification</title>
+    <!-- needed for adaptive design -->
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <!--
+    ReDoc uses font options from the parent element
+    So override default browser styles
+    -->
+    <link type="text/css" rel="stylesheet" href="//www.cobai.com/fonts/font-awesome-4.3.0/css/font-awesome.min.css">
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      div.warn {
+        background: #fffdf6;
+        border: 1px solid #ffeaae;
+        -moz-border-radius: 5px;
+        -webkit-border-radius: 5px;
+        border-radius: 5px;
+        color: #333;
+        margin: 10px 0 1em 0;
+        min-height: 20px;
+        padding: 10px 10px 10px 36px;
+        position: relative;
+      }
+      div.warn .fa { 
+        color: #ffeaae;
+        position: absolute;
+        left: 10px;
+        top: 13px;
+      }
+      div.info {
+        background: #f3f9f4;
+        border: 1px solid #91c89c;
+        -moz-border-radius: 5px;
+        -webkit-border-radius: 5px;
+        border-radius: 5px;
+        color: #333;
+        margin: 10px 0 1em 0;
+        min-height: 20px;
+        padding: 10px 10px 10px 36px;
+        position: relative;
+      }
+      div.info .fa { 
+        color: #91c89c;
+        position: absolute;
+        left: 10px;
+        top: 13px;
+      }
+      [section] {padding-top: 1.5em !important;}
+    </style>
+
+  </head>
+  <body>
+    <redoc spec-url="./swagger.json">
+    </redoc>
+    <script src="//rebilly.github.io/ReDoc/releases/v1.x.x/redoc.min.js"> </script>
+  </body>
+</html>
